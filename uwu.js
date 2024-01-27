@@ -47,6 +47,18 @@ const PORT = process.env.PORT || 80;
 app.listen(PORT, '0.0.0.0', () => console.log(`Server started on port ${PORT}`));
 
 async function getLocationFromEmbed(embed) {
+    if (embed.startsWith('https://sendvid.com')) {
+        try {
+            const response = await axios.get(embed);
+            console.log(response.data);
+            const $ = cheerio.load(response.data);
+            const videoSource = $('source#video_source').attr('src');
+            return videoSource;
+        } catch (error) {
+            console.error(`Failed to fetch from ${embed}: ${error}`);
+            return null;
+        }
+    }
     const intermediaries = [];
     let real = '';
 
