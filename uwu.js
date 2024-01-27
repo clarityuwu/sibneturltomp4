@@ -16,8 +16,10 @@ app.get('/location', async (req, res) => {
 
     pageUrl += `?s=${s}&ep=${ep}&lang=${lang}`;
 
+    console.log(`Getting location for ${pageUrl}`);
+
     try {
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         await page.goto(pageUrl);
         console.log(`Opened page ${pageUrl}`);
