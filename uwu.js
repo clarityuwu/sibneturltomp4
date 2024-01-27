@@ -22,7 +22,7 @@ app.get('/location', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 80;
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`Server started on port ${PORT}`));
 
 async function getLocationFromEmbed(embed) {
     const intermediaries = [];
