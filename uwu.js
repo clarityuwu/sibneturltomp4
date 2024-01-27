@@ -15,11 +15,11 @@ app.get('/location', async (req, res) => {
     const ep = parsedUrl.searchParams.get('ep');
     const lang = parsedUrl.searchParams.get('lang');
 
-    console.log(parsedUrl);
+    console.log(pageUrl);
 
     try {
-        const response = await axios.get(parsedUrl);
-        console.log(`Got response from ${parsedUrl}`);
+        const response = await axios.get(pageUrl);
+        console.log(`Got response from ${pageUrl}`);
         const $ = cheerio.load(response.data);
         let embedUrl = '';
 
