@@ -15,12 +15,13 @@ app.get('/location', async (req, res) => {
     }
 
     pageUrl += `?s=${s}&ep=${ep}&lang=${lang}`;
-    console.log(`Getting location from ${pageUrl}`);
 
     try {
-        const response = await axios.get(pageUrl);
+        const headers = getHeaders(referer);
+        const response = await axios.get(pageUrl, { headers });
         console.log(`Got response from ${pageUrl}`);
         const $ = cheerio.load(response.data);
+        console.log(response.data)
         let embedUrl = '';
 
         $('script[type="application/ld+json"]').each((_, element) => {
