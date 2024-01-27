@@ -7,12 +7,29 @@ const express = require('express');
 const app = express();
 
 app.get('/location', async (req, res) => {
-    const embedUrl = req.query.embedUrl;
-    if (!embedUrl) {
-        return res.status(400).send({ error: 'Missing embedUrl query parameter' });
+    const pageUrl = req.query.pageUrl;
+    if (!pageUrl) {
+        return res.status(400).send({ error: 'Missing pageUrl query parameter' });
     }
 
     try {
+        const response = await axios.get(pageUrl);
+        const $ = cheerio.load(response.data);
+        const scripts = $('script[type="application/ld+json"]');
+        let embedUrl = '';
+
+        scripts.each((_, script) => {
+            const content = $(script).html();
+            const jsonContent = JSON.parse(content);
+            if (jsonContent['@type'] === 'VideoObject') {
+                embedUrl = jsonContent.embedUrl;
+            }
+        });
+
+        if (!embedUrl) {
+            return res.status(404).send({ error: 'Embed URL not found' });
+        }
+
         const locationUrl = await getLocationFromEmbed(embedUrl);
         return res.send({ locationUrl });
     } catch (error) {
