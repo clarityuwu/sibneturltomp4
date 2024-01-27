@@ -19,11 +19,9 @@ app.get('/location', async (req, res) => {
 
         $('script[type="application/ld+json"]').each((_, element) => {
             const scriptContent = $(element).html();
-            console.log(scriptContent);
             try {
                 const jsonContent = JSON.parse(scriptContent);
-                console.log(jsonContent);
-                if (jsonContent['@type'] === 'VideoObject') {
+                if (jsonContent.embedUrl) {
                     embedUrl = jsonContent.embedUrl;
                     return false; // Break the loop
                 }
@@ -34,7 +32,7 @@ app.get('/location', async (req, res) => {
         });
 
         if (!embedUrl) {
-            return res.status(404).send({ error: 'No VideoObject found' });
+            return res.status(404).send({ error: 'No embedUrl found' });
         }
 
         const locationUrl = await getLocationFromEmbed(embedUrl);
