@@ -2,9 +2,6 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
 const puppeteer = require('puppeteer');
-const pLimit = require('p-limit');
-
-const limit = pLimit(5);
 const app = express();
 
 let browser;
@@ -24,11 +21,13 @@ app.get('/location', async (req, res) => {
 
     try {
         if (!browser) {
-            const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+            browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         }
         const page = await browser.newPage();
         await page.goto(pageUrl);
         console.log(`Opened page ${pageUrl}`);
+        const content = await page.content();
+        console.log(content);
         await page.waitForSelector('#play_button');
         await page.click('#play_button');
 
