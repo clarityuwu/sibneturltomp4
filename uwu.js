@@ -11,18 +11,17 @@ app.get('/location', async (req, res) => {
     const s = req.query.s;
     const ep = req.query.ep;
     const lang = req.query.lang;
+
+    pageUrl += `?s=${s}&ep=${ep}&lang=${lang}`;
+
     if (!pageUrl) {
         return res.status(400).send({ error: 'Missing pageUrl query parameter' });
     }
 
-    pageUrl += `?s=${s}&ep=${ep}&lang=${lang}`;
-
     console.log(`Getting location for ${pageUrl}`);
 
     try {
-        if (!browser) {
-            browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-        }
+        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
         const page = await browser.newPage();
         await page.goto(pageUrl);
         console.log(`Opened page ${pageUrl}`);
