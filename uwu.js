@@ -15,20 +15,13 @@ app.get('/location', async (req, res) => {
     try {
         const response = await axios.get(pageUrl);
         const $ = cheerio.load(response.data);
-        const scripts = $('script[type="application/ld+json"]');
+        const script = $('#flex').html(); // Get the script from the div with id "flex"
         let embedUrl = '';
 
-        scripts.each((_, script) => {
-            const content = $(script).html();
-            const jsonContent = JSON.parse(content);
-            console.log(jsonContent);
-            if (jsonContent['@type'] === 'VideoObject') {
-                embedUrl = jsonContent.embedUrl;
-            }
-        });
-
-        if (!embedUrl) {
-            return res.status(404).send({ error: 'Embed URL not found' });
+        const jsonContent = JSON.parse(script);
+        console.log(jsonContent);
+        if (jsonContent['@type'] === 'VideoObject') {
+            embedUrl = jsonContent.embedUrl;
         }
 
         const locationUrl = await getLocationFromEmbed(embedUrl);
