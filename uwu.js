@@ -5,7 +5,9 @@ const url = require('url');
 const app = express();
 
 app.get('/location', async (req, res) => {
-    const pageUrl = req.query.pageUrl;
+    const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
+    const pageUrl = new url.URL(fullUrl, true).query.pageUrl;
+    
     if (!pageUrl) {
         return res.status(400).send({ error: 'Missing pageUrl query parameter' });
     }
