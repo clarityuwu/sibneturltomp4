@@ -1,7 +1,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
-
+const url = require('url');
 const app = express();
 
 app.get('/location', async (req, res) => {
@@ -10,9 +10,16 @@ app.get('/location', async (req, res) => {
         return res.status(400).send({ error: 'Missing pageUrl query parameter' });
     }
 
+    const parsedUrl = new url.URL(pageUrl);
+    const s = parsedUrl.searchParams.get('s');
+    const ep = parsedUrl.searchParams.get('ep');
+    const lang = parsedUrl.searchParams.get('lang');
+
+    console.log(parsedUrl);
+
     try {
-        const response = await axios.get(pageUrl);
-        console.log(`Got response from ${pageUrl}`);
+        const response = await axios.get(parsedUrl);
+        console.log(`Got response from ${parsedUrl}`);
         const $ = cheerio.load(response.data);
         let embedUrl = '';
 
