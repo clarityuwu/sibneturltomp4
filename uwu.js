@@ -26,14 +26,11 @@ app.get('/location', async (req, res) => {
         await page.waitForSelector('#play_button');
         await page.click('#play_button');
 
-        // Wait for the request to the API
         const apiResponse = await page.waitForResponse(response => response.url().startsWith('https://api.franime.fr/api/anime/'));
-        const apiData = await apiResponse.json();
+        const embedUrl = await apiResponse.text();
 
         await browser.close();
 
-        // Process the embedUrl from the API response
-        const embedUrl = apiData.embedUrl;
         if (!embedUrl) {
             return res.status(404).send({ error: 'No embedUrl found in API response' });
         }
