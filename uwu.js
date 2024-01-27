@@ -5,19 +5,17 @@ const url = require('url');
 const app = express();
 
 app.get('/location', async (req, res) => {
-    const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
-    const pageUrl = new url.URL(fullUrl, true).query.pageUrl;
-    
+    let pageUrl = req.query.pageUrl;
+    const s = req.query.s;
+    const ep = req.query.ep;
+    const lang = req.query.lang;
+
     if (!pageUrl) {
         return res.status(400).send({ error: 'Missing pageUrl query parameter' });
     }
 
-    const parsedUrl = new url.URL(pageUrl);
-    const s = parsedUrl.searchParams.get('s');
-    const ep = parsedUrl.searchParams.get('ep');
-    const lang = parsedUrl.searchParams.get('lang');
-
-    console.log(pageUrl);
+    pageUrl += `?s=${s}&ep=${ep}&lang=${lang}`;
+    console.log(`Getting location from ${pageUrl}`);
 
     try {
         const response = await axios.get(pageUrl);
