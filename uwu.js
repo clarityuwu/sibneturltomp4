@@ -1,11 +1,8 @@
-
-
 const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
-const puppeteer = require('puppeteer');
-const app = express();
 
+const app = express();
 
 app.get('/location', async (req, res) => {
     const pageUrl = req.query.pageUrl;
@@ -14,29 +11,34 @@ app.get('/location', async (req, res) => {
     }
 
     try {
-        const browser = await puppeteer.launch();
-        const page = await browser.newPage();
-        await page.goto(pageUrl);
+        const response = await axios.get(pageUrl);
+        console.log(`Got response from ${pageUrl}`);
+        const $ = cheerio.load(response.data);
+        let embedUrl = '';
 
-        await page.click('#play_button'); // Click the play button
+        $('script[type="application/ld+json"]').each((_, element) => {
+            const scriptContent = $(element).html();
+            try {
+                const jsonContent = JSON.parse(scriptContent);
+                if (jsonContent.embedUrl) {
+                    embedUrl = jsonContent.embedUrl;
+                    return false; // Break the loop
+                }
+            } catch (error) {
+                console.error(`Failed to parse JSON: ${error}`);
+                // Continue to the next script tag
+            }
+        });
 
-        // Wait for the request to the API
-        const apiResponse = await page.waitForResponse(response => response.url().startsWith('https://api.franime.fr/api/anime/'));
-        const apiData = await apiResponse.json();
-
-        await browser.close();
-
-        // Process the embedUrl from the API response
-        const embedUrl = apiData.embedUrl;
         if (!embedUrl) {
-            return res.status(404).send({ error: 'No embedUrl found in API response' });
+            return res.status(404).send({ error: 'No embedUrl found' });
         }
 
         const locationUrl = await getLocationFromEmbed(embedUrl);
         return res.send({ locationUrl });
     } catch (error) {
-        console.error(`Failed to get data from API: ${error}`);
-        return res.status(500).send({ error: 'Failed to get data from API' });
+        console.error(`Failed to get location from embed: ${error}`);
+        return res.status(500).send({ error: 'Failed to get location from embed' });
     }
 });
 
