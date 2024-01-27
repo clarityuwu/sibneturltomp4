@@ -1,35 +1,15 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
-const url = require('url');
+const puppeteer = require('puppeteer');
 const app = express();
 
-function getHeaders(referer) {
-    return {
-        'Accept': '*/*',
-        'Accept-Encoding': 'identity;q=1, *;q=0',
-        'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Connection': 'keep-alive',
-        'Cookie': '__counter_session_visitor_type_2169=new; __sibc_vuid=j47Lq17Gq6ZD3HItYjO_1706049823; __counter_sibnet_pr_url=https%3A%2F%2Fvideo.sibnet.ru%2Fshell.php%3Fvideoid%3D5410090; __counter_seslk_2169=1; visitor_session=MpF7gARRvl5ExLxOfdPXtMv9xBB4El; sib_userid=8250850ff253a40c9b8dff3b9eade1b8; advast_user=cf9c94ff85482ca16f4ffa4e59064a87; _ym_uid=1706049724901383892; _ym_d=1706049724; _ga=GA1.2.1268924244.1706049725; _gid=GA1.2.1560357250.1706049725; __counter_last_visit_2169=1706049814954; __counter_sibnet_pr_cudid=ZCFcJOTNak0Cs0Ty0BflwyS4n2DLGmCb_1706049814953',
-        'Host': 'video.sibnet.ru',
-        'Range': 'bytes=0-',
-        'Referer': referer,
-        'Sec-Fetch-Dest': 'video',
-        'Sec-Fetch-Mode': 'no-cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': 'Windows'
-    };
-}
 
 app.get('/location', async (req, res) => {
     let pageUrl = req.query.pageUrl;
     const s = req.query.s;
     const ep = req.query.ep;
     const lang = req.query.lang;
-
     if (!pageUrl) {
         return res.status(400).send({ error: 'Missing pageUrl query parameter' });
     }
@@ -37,36 +17,30 @@ app.get('/location', async (req, res) => {
     pageUrl += `?s=${s}&ep=${ep}&lang=${lang}`;
 
     try {
-        const headers = getHeaders(referer);
-        const response = await axios.get(pageUrl, { headers });
-        console.log(`Got response from ${pageUrl}`);
-        const $ = cheerio.load(response.data);
-        console.log(response.data)
-        let embedUrl = '';
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await page.goto(pageUrl);
+        console.log(`Opened page ${pageUrl}`);
+        await page.waitForSelector('#play_button');
+        await page.click('#play_button');
 
-        $('script[type="application/ld+json"]').each((_, element) => {
-            const scriptContent = $(element).html();
-            try {
-                const jsonContent = JSON.parse(scriptContent);
-                if (jsonContent.embedUrl) {
-                    embedUrl = jsonContent.embedUrl;
-                    return false; // Break the loop
-                }
-            } catch (error) {
-                console.error(`Failed to parse JSON: ${error}`);
-                // Continue to the next script tag
-            }
-        });
+        // Wait for the request to the API
+        const apiResponse = await page.waitForResponse(response => response.url().startsWith('https://api.franime.fr/api/anime/'));
+        const apiData = await apiResponse.json();
 
+        await browser.close();
+
+        // Process the embedUrl from the API response
+        const embedUrl = apiData.embedUrl;
         if (!embedUrl) {
-            return res.status(404).send({ error: 'No embedUrl found' });
+            return res.status(404).send({ error: 'No embedUrl found in API response' });
         }
 
         const locationUrl = await getLocationFromEmbed(embedUrl);
         return res.send({ locationUrl });
     } catch (error) {
-        console.error(`Failed to get location from embed: ${error}`);
-        return res.status(500).send({ error: 'Failed to get location from embed' });
+        console.error(`Failed to get data from API: ${error}`);
+        return res.status(500).send({ error: 'Failed to get data from API' });
     }
 });
 
@@ -171,6 +145,26 @@ async function followRedirection() {
             console.error(`Failed to fetch from ${url}: ${error}`);
             return null;
         }
+    }
+    
+    function getHeaders(referer) {
+        return {
+            'Accept': '*/*',
+            'Accept-Encoding': 'identity;q=1, *;q=0',
+            'Accept-Language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Connection': 'keep-alive',
+            'Cookie': '__counter_session_visitor_type_2169=new; __sibc_vuid=j47Lq17Gq6ZD3HItYjO_1706049823; __counter_sibnet_pr_url=https%3A%2F%2Fvideo.sibnet.ru%2Fshell.php%3Fvideoid%3D5410090; __counter_seslk_2169=1; visitor_session=MpF7gARRvl5ExLxOfdPXtMv9xBB4El; sib_userid=8250850ff253a40c9b8dff3b9eade1b8; advast_user=cf9c94ff85482ca16f4ffa4e59064a87; _ym_uid=1706049724901383892; _ym_d=1706049724; _ga=GA1.2.1268924244.1706049725; _gid=GA1.2.1560357250.1706049725; __counter_last_visit_2169=1706049814954; __counter_sibnet_pr_cudid=ZCFcJOTNak0Cs0Ty0BflwyS4n2DLGmCb_1706049814953',
+            'Host': 'video.sibnet.ru',
+            'Range': 'bytes=0-',
+            'Referer': referer,
+            'Sec-Fetch-Dest': 'video',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': 'Windows'
+        };
     }
 
     await getIntermediary();
