@@ -2,8 +2,12 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
 const puppeteer = require('puppeteer');
+const pLimit = require('p-limit');
+
+const limit = pLimit(5);
 const app = express();
 
+let browser;
 
 app.get('/location', async (req, res) => {
     let pageUrl = req.query.pageUrl;
@@ -19,7 +23,9 @@ app.get('/location', async (req, res) => {
     console.log(`Getting location for ${pageUrl}`);
 
     try {
-        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        if (!browser) {
+            const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        }
         const page = await browser.newPage();
         await page.goto(pageUrl);
         console.log(`Opened page ${pageUrl}`);
@@ -40,6 +46,12 @@ app.get('/location', async (req, res) => {
     } catch (error) {
         console.error(`Failed to get data from API: ${error}`);
         return res.status(500).send({ error: 'Failed to get data from API' });
+    }
+});
+
+process.on('exit', () => {
+    if (browser) {
+        browser.close();
     }
 });
 
