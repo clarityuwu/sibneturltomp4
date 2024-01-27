@@ -21,6 +21,7 @@ app.get('/location', async (req, res) => {
         scripts.each((_, script) => {
             const content = $(script).html();
             const jsonContent = JSON.parse(content);
+            console.log(jsonContent);
             if (jsonContent['@type'] === 'VideoObject') {
                 embedUrl = jsonContent.embedUrl;
             }
