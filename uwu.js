@@ -1,18 +1,10 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
-const puppeteer = require('puppeteer');
 const app = express();
 
-let browser;
-
 app.get('/location', async (req, res) => {
-    let pageUrl = req.query.pageUrl;
-    const s = req.query.s;
-    const ep = req.query.ep;
-    const lang = req.query.lang;
-
-    pageUrl += `?s=${s}&ep=${ep}&lang=${lang}`;
+    const pageUrl = req.query.pageUrl;
 
     if (!pageUrl) {
         return res.status(400).send({ error: 'Missing pageUrl query parameter' });
@@ -21,35 +13,14 @@ app.get('/location', async (req, res) => {
     console.log(`Getting location for ${pageUrl}`);
 
     try {
-        const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-        const page = await browser.newPage();
-        await page.goto(pageUrl);
-        console.log(`Opened page ${pageUrl}`);
-        const content = await page.content();
-        console.log(content);
-        await page.waitForSelector('#play_button');
-        await page.click('#play_button');
-
-        const apiResponse = await page.waitForResponse(response => response.url().startsWith('https://api.franime.fr/api/anime/'));
-        const embedUrl = await apiResponse.text();
-
-        await browser.close();
-
-        if (!embedUrl) {
-            return res.status(404).send({ error: 'No embedUrl found in API response' });
+        const locationUrl = await getLocationFromEmbed(pageUrl);
+        if (!locationUrl) {
+            return res.status(404).send({ error: 'No location URL found' });
         }
-
-        const locationUrl = await getLocationFromEmbed(embedUrl);
         return res.send({ locationUrl });
     } catch (error) {
-        console.error(`Failed to get data from API: ${error}`);
-        return res.status(500).send({ error: 'Failed to get data from API' });
-    }
-});
-
-process.on('exit', () => {
-    if (browser) {
-        browser.close();
+        console.error(`Failed to get data: ${error}`);
+        return res.status(500).send({ error: 'Failed to get data' });
     }
 });
 
@@ -57,86 +28,75 @@ const PORT = process.env.PORT || 80;
 app.listen(PORT, '0.0.0.0', () => console.log(`Server started on port ${PORT}`));
 
 async function getLocationFromEmbed(embed) {
-    if (embed.startsWith('https://sendvid.com')) {
-        try {
-            const response = await axios.get(embed);
-            console.log(response.data);
-            const $ = cheerio.load(response.data);
-            const videoSource = $('source#video_source').attr('src');
-            return videoSource;
-        } catch (error) {
-            console.error(`Failed to fetch from ${embed}: ${error}`);
-            return null;
-        }
-    }
     const intermediaries = [];
     let real = '';
 
     async function getIntermediary() {
         const body = await httpRequestBody(embed, embed);
         if (!body) return false;
-    
+
         const $ = cheerio.load(body);
         const scripts = [];
-    
+
         $('script').each((_, script) => {
             if ($(script).html().includes('player.src')) {
                 scripts.push($(script).html());
             }
         });
-    
+
         if (scripts.length < 1) {
             console.log('No scripts found');
             return false;
         }
-    
+
         const script = scripts[0];
         const mp4Match = script.match(/player\.src\(\[{src:\s*["']([^"']+)["']/);
-    
+        console.log(mp4Match);
+
         if (!mp4Match) {
             console.log('No mp4Match found');
             return false;
         }
-    
+
         intermediaries.push(`https://video.sibnet.ru${mp4Match[1]}`);
         return true;
     }
 
-async function followRedirection() {
-    if (intermediaries.length === 0) {
-        console.log('No intermediaries found');
-        return false;
-    }
-
-    const res = await httpRequest(intermediaries[0], embed);
-
-    if (res && res.status === 302) {
-        intermediaries.push(correct(res.headers.location));
-        const secondRes = await httpRequest(intermediaries[1]);
-
-        if (secondRes) {
-            switch (secondRes.status) {
-                case 302:
-                    real = correct(secondRes.headers.location);
-                    break;
-                case 200:
-                    real = intermediaries.pop();
-                    break;
-                default:
-                    console.log('Second response status is not 302 or 200');
-                    return false;
-            }
-        } else {
-            console.log('Second request failed');
+    async function followRedirection() {
+        if (intermediaries.length === 0) {
+            console.log('No intermediaries found');
             return false;
         }
-    } else {
-        console.log('First request failed');
-        return false;
-    }
 
-    return true;
-}
+        const res = await httpRequest(intermediaries[0], embed);
+
+        if (res && res.status === 302) {
+            intermediaries.push(correct(res.headers.location));
+            const secondRes = await httpRequest(intermediaries[1]);
+
+            if (secondRes) {
+                switch (secondRes.status) {
+                    case 302:
+                        real = correct(secondRes.headers.location);
+                        break;
+                    case 200:
+                        real = intermediaries.pop();
+                        break;
+                    default:
+                        console.log('Second response status is not 302 or 200');
+                        return false;
+                }
+            } else {
+                console.log('Second request failed');
+                return false;
+            }
+        } else {
+            console.log('First request failed');
+            return false;
+        }
+
+        return true;
+    }
 
     function getLocation() {
         return real;
@@ -156,7 +116,7 @@ async function followRedirection() {
             return null;
         }
     }
-    
+
     async function httpRequest(url, referer) {
         const headers = getHeaders(referer);
         try {
@@ -167,7 +127,7 @@ async function followRedirection() {
             return null;
         }
     }
-    
+
     function getHeaders(referer) {
         return {
             'Accept': '*/*',
